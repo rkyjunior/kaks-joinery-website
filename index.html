@@ -188,6 +188,32 @@
   .f-msg.ok{color:#2f7d55}
   .f-hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
 
+  /* ---- ai simulator ---- */
+  .sim-disclaimer{background:#fbf6ea;border:1px solid #d9c48f;color:#8a6a1f;font-size:13.5px;padding:14px 18px;border-radius:3px;line-height:1.6;margin-bottom:40px}
+  .sim-grid{display:grid;grid-template-columns:1fr 1fr;gap:50px;align-items:start}
+  @media(max-width:900px){ .sim-grid{grid-template-columns:1fr;gap:34px} }
+  .sim-step{margin-bottom:28px}
+  .sim-step-label{font-size:11px;letter-spacing:1px;color:var(--gold-dk);font-weight:700;margin-bottom:10px}
+  .sim-upload{border:1.5px dashed var(--line);border-radius:4px;padding:34px 20px;text-align:center;cursor:pointer;transition:border-color .15s;background:#fff}
+  .sim-upload:hover{border-color:var(--gold)}
+  .sim-upload.has-file{border-style:solid;border-color:var(--gold);padding:0;overflow:hidden}
+  .sim-upload img{width:100%;display:block;max-height:320px;object-fit:cover}
+  .sim-upload .up-ic{font-size:26px;margin-bottom:10px}
+  .sim-upload .up-t{font-size:14px;font-weight:600;color:var(--ink)}
+  .sim-upload .up-s{font-size:12.5px;color:var(--muted);margin-top:4px}
+  .sim-select{width:100%;padding:13px 14px;border:1px solid var(--line);border-radius:2px;font-size:14.5px;background:#fff;color:var(--ink)}
+  .sim-generate{width:100%;padding:15px;background:var(--gold);color:#fff;font-weight:600;font-size:15px;border-radius:2px;transition:background .15s;margin-top:10px}
+  .sim-generate:hover{background:var(--gold-dk)}
+  .sim-generate:disabled{opacity:.5;cursor:not-allowed}
+  .sim-result{border:1px solid var(--line);background:#fff;min-height:340px;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:30px;text-align:center}
+  .sim-result img{width:100%;display:block}
+  .sim-result .placeholder-ic{font-size:32px;color:var(--muted);margin-bottom:14px}
+  .sim-result p{color:var(--muted);font-size:14px;line-height:1.6;max-width:280px}
+  .sim-spinner{width:34px;height:34px;border:3px solid var(--line);border-top-color:var(--gold);border-radius:50%;animation:sim-spin 0.8s linear infinite;margin-bottom:16px}
+  @keyframes sim-spin{to{transform:rotate(360deg)}}
+  .sim-result-actions{display:flex;gap:12px;margin-top:20px;width:100%}
+  .sim-msg{font-size:13.5px;margin-top:14px;color:#b3402e}
+
   /* ---- footer ---- */
   footer.site{background:var(--dark);color:#c9c2b2;padding:64px 0 30px}
   .foot-grid{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:50px;margin-bottom:50px}
@@ -220,6 +246,7 @@
       <a href="#/" data-route="/">Home</a>
       <a href="#/about" data-route="/about">About</a>
       <a href="#/showroom" data-route="/showroom">Showroom</a>
+      <a href="#/simulator" data-route="/simulator">AI Simulator</a>
       <a href="#/contact" data-route="/contact">Visit &amp; Contact</a>
       <a href="#/contact" class="btn-quote">Request a Quote</a>
     </nav>
@@ -310,7 +337,7 @@ const ICONS = {
 };
 
 // ================= ROUTING =================
-const routes = { '/': renderHome, '/about': renderAbout, '/showroom': renderShowroom, '/contact': renderContact };
+const routes = { '/': renderHome, '/about': renderAbout, '/showroom': renderShowroom, '/simulator': renderSimulator, '/contact': renderContact };
 function router(){
   const path = (location.hash.replace('#','') || '/').split('?')[0];
   const fn = routes[path] || renderHome;
@@ -542,6 +569,121 @@ function paintShowroomGrid(){
 }
 
 // ================= LOCATION & CONTACT =================
+// ================= AI ROOM SIMULATOR =================
+let simFile = null; // { base64, type } of the (resized) uploaded room photo
+function renderSimulator(){
+  $('app').innerHTML = `
+  <section>
+    <div class="wrap">
+      <div class="sec-head">
+        <h2>See It In Your Space</h2>
+        <p>Upload a photo of your room, pick a piece from the catalog, and get an AI-generated preview.</p>
+      </div>
+      <div class="sim-disclaimer">This is an early, generic preview — it generates furniture matching the wood and style you pick, not a photo of the exact physical piece (we're adding real product photography soon, which will make this much more accurate). Treat the result as a rough idea of fit and style, not a final rendering.</div>
+      <div class="sim-grid">
+        <div>
+          <div class="sim-step">
+            <div class="sim-step-label">STEP 1 &middot; YOUR ROOM</div>
+            <div class="sim-upload" id="simUpload">
+              <div class="up-ic">\uD83D\uDCF7</div>
+              <div class="up-t">Tap to upload a photo</div>
+              <div class="up-s">JPG or PNG &middot; a clear, well-lit shot works best</div>
+            </div>
+            <input type="file" id="simFileInput" accept="image/jpeg,image/png,image/webp" class="hidden">
+          </div>
+          <div class="sim-step">
+            <div class="sim-step-label">STEP 2 &middot; CHOOSE A PIECE</div>
+            <select class="sim-select" id="simItemSelect">
+              ${CATALOG.map(p=>`<option value="${esc(p.id)}">${esc(p.name)} \u2014 ${esc(p.wood)}, ${esc(p.style)}</option>`).join('')}
+            </select>
+          </div>
+          <button class="sim-generate" id="simGenerate">Generate Preview</button>
+          <div class="sim-msg" id="simMsg"></div>
+        </div>
+        <div class="sim-result" id="simResult">
+          <div class="placeholder-ic">\uD83E\uDE91</div>
+          <p>Your generated preview will appear here once you upload a photo and click Generate.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+  `;
+  const upload = $('simUpload'), fileInput = $('simFileInput');
+  upload.onclick = ()=> fileInput.click();
+  fileInput.addEventListener('change', handleSimFile);
+  $('simGenerate').onclick = generateSimPreview;
+}
+
+function handleSimFile(){
+  const input = $('simFileInput');
+  const f = input.files && input.files[0];
+  if(!f) return;
+  simMsg('');
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    const img = new Image();
+    img.onload = ()=>{
+      // Resize client-side so the payload stays small and generation is faster/cheaper —
+      // long edge capped at 1280px, well within what Kontext needs for a good result.
+      const maxEdge = 1280;
+      let { width, height } = img;
+      if(width > maxEdge || height > maxEdge){
+        const scale = maxEdge / Math.max(width, height);
+        width = Math.round(width*scale); height = Math.round(height*scale);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width; canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      simFile = { base64: dataUrl.split(',')[1], type: 'image/jpeg' };
+      const upload = $('simUpload');
+      upload.classList.add('has-file');
+      upload.innerHTML = `<img src="${dataUrl}" alt="Your room">`;
+    };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(f);
+}
+
+function simMsg(t){ const m=$('simMsg'); if(m) m.textContent = t||''; }
+function simResultLoading(){
+  $('simResult').innerHTML = `<div class="sim-spinner"></div><p>Generating your preview \u2014 this can take up to a minute.</p>`;
+}
+function simResultError(t){
+  $('simResult').innerHTML = `<div class="placeholder-ic">\u26A0\uFE0F</div><p>${esc(t)}</p>`;
+}
+function simResultImage(url, item){
+  $('simResult').innerHTML = `<img src="${esc(url)}" alt="Generated preview">
+    <div class="sim-result-actions">
+      <button class="btn-lg gold" style="flex:1" id="simInquire">Inquire About This Design</button>
+    </div>`;
+  $('simInquire').onclick = ()=> goQuote(item.name + ' (from the AI Room Simulator preview)');
+}
+
+async function generateSimPreview(){
+  if(!simFile){ simMsg('Please upload a photo of your room first.'); return; }
+  const item = CATALOG.find(p=>p.id === $('simItemSelect').value);
+  if(!item){ simMsg('Please choose a piece from the list.'); return; }
+  const btn = $('simGenerate'); btn.disabled = true; btn.textContent = 'Generating\u2026';
+  simMsg(''); simResultLoading();
+  try{
+    const res = await fetch('/api/simulate', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ imageBase64: simFile.base64, imageType: simFile.type, itemName: item.name, itemWood: item.wood, itemStyle: item.style })
+    });
+    let data = {}; try{ data = await res.json(); }catch(e){}
+    if(res.ok && data && data.status==='ok' && data.imageUrl){
+      simResultImage(data.imageUrl, item);
+    } else {
+      throw new Error((data&&data.error) || 'Something went wrong generating your preview.');
+    }
+  }catch(err){
+    simResultError('Could not generate a preview: ' + ((err&&err.message)||'unknown error') + '. Please try again.');
+  }finally{
+    btn.disabled = false; btn.textContent = 'Generate Preview';
+  }
+}
+
 function renderContact(){
   const mapQuery = encodeURIComponent('Kumasi, Ghana');
   $('app').innerHTML = `
