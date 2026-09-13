@@ -1,0 +1,9 @@
+{
+  "name": "kaks-joinery-website",
+  "version": "1.0.0",
+  "private": true,
+  "description": "KAK'S Joinery public marketing website, with a serverless contact-form proxy into the CMS lead pipeline.",
+  "dependencies": {
+    "puppeteer": "^25.10.0"
+  }
+}
