@@ -49,14 +49,26 @@ module.exports = async (req, res) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, phone, whatsapp, email, channel: 'website', message })
     });
+    const rawText = await upstream.text();
     let data = {};
-    try { data = await upstream.json(); } catch (e) {}
+    try { data = JSON.parse(rawText); } catch (e) {}
     if (!upstream.ok) {
-      res.status(upstream.status).json({ error: (data && data.error) || 'The CMS did not accept this lead.' });
+      // TEMPORARY DIAGNOSTICS — remove the "debug" block once this is working.
+      // Shows exactly what was sent and what came back, without exposing the full secret.
+      res.status(upstream.status).json({
+        error: (data && data.error) || 'The CMS did not accept this lead.',
+        debug: {
+          urlCalled: webhookUrl,
+          tokenLength: token.length,
+          tokenPreview: token.length > 6 ? (token.slice(0,3) + '...' + token.slice(-3)) : '(very short — check this)',
+          cmsStatus: upstream.status,
+          cmsRawResponse: rawText.slice(0, 500)
+        }
+      });
       return;
     }
     res.status(200).json({ status: 'ok' });
   } catch (e) {
-    res.status(502).json({ error: 'Could not reach the CMS right now. Please try again shortly.' });
+    res.status(502).json({ error: 'Could not reach the CMS right now. Please try again shortly.', debug: { exceptionMessage: e && e.message } });
   }
 };
