@@ -781,10 +781,14 @@ async function submitLead(e){
       $('leadForm').reset();
       fMsg('Thanks — we\u2019ve received your request and will be in touch shortly.', 'ok');
     } else {
-      throw new Error((data&&data.error)||'Server error');
+      const err2 = new Error((data&&data.error)||'Server error');
+      err2.debug = data && data.debug;
+      throw err2;
     }
   }catch(err){
-    fMsg('Could not send your request: '+((err&&err.message)||'unknown error')+'. Please try again or call us directly.');
+    let msg = 'Could not send your request: '+((err&&err.message)||'unknown error')+'.';
+    if(err && err.debug){ msg += ' [DEBUG: '+JSON.stringify(err.debug)+']'; }
+    fMsg(msg + ' Please try again or call us directly.');
   }finally{
     btn.disabled = false; btn.textContent = 'Send Request';
   }
